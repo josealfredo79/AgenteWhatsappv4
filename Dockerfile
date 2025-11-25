@@ -1,7 +1,7 @@
 # Dockerfile para Railway - WhatsApp Agent
-# Optimizado siguiendo mejores prácticas de Docker para Node.js
+# Usando Node.js 18 LTS para compatibilidad con OpenSSL 1.1
 
-FROM node:20-alpine
+FROM node:18-alpine
 
 # Instalar dependencias del sistema si son necesarias
 RUN apk add --no-cache libc6-compat
