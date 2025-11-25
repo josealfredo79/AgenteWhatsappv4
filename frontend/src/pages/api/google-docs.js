@@ -19,6 +19,9 @@
  *         description: Error interno
  */
 import { google } from 'googleapis';
+import path from 'path';
+
+const getKeyFile = () => process.env.GOOGLE_SERVICE_ACCOUNT_FILE || path.join(process.cwd(), 'google-credentials.json');
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).json({ error: 'Método no permitido' });
@@ -26,7 +29,7 @@ export default async function handler(req, res) {
   if (!docId) return res.status(400).json({ error: 'Falta el parámetro docId' });
   try {
     const auth = new google.auth.GoogleAuth({
-      keyFile: process.env.GOOGLE_SERVICE_ACCOUNT_FILE,
+      keyFile: getKeyFile(),
       scopes: ['https://www.googleapis.com/auth/documents.readonly'],
     });
     const docs = google.docs({ version: 'v1', auth });

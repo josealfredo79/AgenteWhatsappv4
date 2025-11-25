@@ -2,6 +2,9 @@ import { Anthropic } from '@anthropic-ai/sdk';
 import twilio from 'twilio';
 import { google } from 'googleapis';
 import { DateTime } from 'luxon';
+import path from 'path';
+
+const getKeyFile = () => process.env.GOOGLE_SERVICE_ACCOUNT_FILE || path.join(process.cwd(), 'google-credentials.json');
 
 const SYSTEM_PROMPT = `Eres un asesor inmobiliario profesional que sigue un FLUJO CONVERSACIONAL estructurado.
 
@@ -104,7 +107,7 @@ const tools = [
 async function consultarDocumentos({ query }) {
   try {
     const auth = new google.auth.GoogleAuth({
-      keyFile: process.env.GOOGLE_SERVICE_ACCOUNT_FILE,
+      keyFile: getKeyFile(),
       scopes: ['https://www.googleapis.com/auth/documents.readonly'],
     });
     
@@ -143,7 +146,7 @@ async function consultarDocumentos({ query }) {
 async function guardarMensajeEnSheet({ telefono, direccion, mensaje, messageId }) {
   try {
     const auth = new google.auth.GoogleAuth({
-      keyFile: process.env.GOOGLE_SERVICE_ACCOUNT_FILE,
+      keyFile: getKeyFile(),
       scopes: ['https://www.googleapis.com/auth/spreadsheets'],
     });
     
@@ -172,7 +175,7 @@ async function guardarMensajeEnSheet({ telefono, direccion, mensaje, messageId }
 async function guardarClienteEnSheet({ nombre, email, telefono, servicio, cita }) {
   try {
     const auth = new google.auth.GoogleAuth({
-      keyFile: process.env.GOOGLE_SERVICE_ACCOUNT_FILE,
+      keyFile: getKeyFile(),
       scopes: ['https://www.googleapis.com/auth/spreadsheets'],
     });
     
@@ -202,7 +205,7 @@ async function agendarCita({ resumen, descripcion = '', fecha, hora_inicio, dura
   try {
     const TIMEZONE = 'America/Mexico_City';
     const auth = new google.auth.GoogleAuth({
-      keyFile: process.env.GOOGLE_SERVICE_ACCOUNT_FILE,
+      keyFile: getKeyFile(),
       scopes: ['https://www.googleapis.com/auth/calendar'],
     });
     

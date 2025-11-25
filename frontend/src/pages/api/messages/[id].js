@@ -1,11 +1,14 @@
 import { google } from 'googleapis';
+import path from 'path';
+
+const getKeyFile = () => process.env.GOOGLE_SERVICE_ACCOUNT_FILE || path.join(process.cwd(), 'google-credentials.json');
 
 export default async function handler(req, res) {
   const { query: { id } } = req;
 
   try {
     const auth = new google.auth.GoogleAuth({
-      keyFile: process.env.GOOGLE_SERVICE_ACCOUNT_FILE,
+      keyFile: getKeyFile(),
       scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'],
     });
 
