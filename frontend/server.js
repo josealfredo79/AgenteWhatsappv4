@@ -4,11 +4,17 @@ const { parse } = require('url');
 const next = require('next');
 const { Server } = require('socket.io');
 
+console.log('🚀 Iniciando servidor...');
+console.log('📍 NODE_ENV:', process.env.NODE_ENV);
+console.log('📍 PORT:', process.env.PORT);
+
 const dev = process.env.NODE_ENV !== 'production';
 const app = next({ dev });
 const handle = app.getRequestHandler();
 
 app.prepare().then(() => {
+  console.log('✅ Next.js preparado correctamente');
+  
   // MCP (Model Context Protocol) - endpoints mínimos embebidos
   const handleMCP = async (req, res) => {
     if (req.method === 'GET' && req.url === '/mcp/health') {
@@ -67,7 +73,22 @@ app.prepare().then(() => {
   console.log('🔍 DEBUG: HOST =', HOST);
 
   server.listen(PORT, HOST, (err) => {
-    if (err) throw err;
+    if (err) {
+      console.error('❌ Error al iniciar el servidor:', err);
+      throw err;
+    }
     console.log(`✅ Servidor Next.js + Socket.io + MCP listo en http://${HOST}:${PORT}`);
   });
+}).catch((err) => {
+  console.error('❌ Error al preparar Next.js:', err);
+  process.exit(1);
+});
+
+// Capturar errores no manejados
+process.on('uncaughtException', (err) => {
+  console.error('❌ Uncaught Exception:', err);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('❌ Unhandled Rejection at:', promise, 'reason:', reason);
 });

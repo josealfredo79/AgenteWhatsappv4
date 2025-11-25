@@ -4,16 +4,22 @@ const path = require('path');
 /**
  * Script para crear google-credentials.json desde variable de entorno
  * Se ejecuta antes de iniciar el servidor (prestart)
- * Necesario para Railway y otros entornos donde no se puede subir archivos
- * 
- * FIX: ERR_OSSL_UNSUPPORTED - Los \n en private_key deben ser saltos de línea reales
  */
 
-const credentialsPath = path.join(__dirname, 'google-credentials.json');
+console.log('========================================');
+console.log('🔧 CREATE-GOOGLE-CREDENTIALS.JS');
+console.log('========================================');
+console.log('📍 NODE_ENV:', process.env.NODE_ENV);
+console.log('📍 PWD:', process.cwd());
 
-// Soporta dos formas de pasar credenciales:
-// 1) GOOGLE_CREDENTIALS_B64  -> Base64 del JSON (RECOMENDADO - evita problemas de escape)
-// 2) GOOGLE_CREDENTIALS_JSON -> JSON crudo (puede tener problemas con \n)
+const credentialsPath = path.join(__dirname, 'google-credentials.json');
+console.log('📍 Credentials path:', credentialsPath);
+
+// Debug: mostrar qué variables existen (sin mostrar valores sensibles)
+console.log('📍 GOOGLE_CREDENTIALS_B64 exists:', !!process.env.GOOGLE_CREDENTIALS_B64);
+console.log('📍 GOOGLE_CREDENTIALS_B64 length:', process.env.GOOGLE_CREDENTIALS_B64?.length || 0);
+console.log('📍 GOOGLE_CREDENTIALS_JSON exists:', !!process.env.GOOGLE_CREDENTIALS_JSON);
+
 let credentialsJson = null;
 const credentialsB64 = process.env.GOOGLE_CREDENTIALS_B64;
 const credentialsRaw = process.env.GOOGLE_CREDENTIALS_JSON;
@@ -22,10 +28,12 @@ const credentialsRaw = process.env.GOOGLE_CREDENTIALS_JSON;
 if (credentialsB64) {
   try {
     credentialsJson = Buffer.from(credentialsB64, 'base64').toString('utf8');
-    console.log('ℹ️  Usando GOOGLE_CREDENTIALS_B64 (Base64)');
+    console.log('✅ Decodificado GOOGLE_CREDENTIALS_B64 correctamente');
+    console.log('📍 JSON length después de decode:', credentialsJson.length);
   } catch (err) {
     console.error('❌ Error al decodificar GOOGLE_CREDENTIALS_B64:', err.message);
-    process.exit(1);
+    console.error('   Primeros 50 chars del B64:', credentialsB64?.substring(0, 50));
+    // NO exit - continuar para debug
   }
 } else if (credentialsRaw) {
   credentialsJson = credentialsRaw;
@@ -34,15 +42,14 @@ if (credentialsB64) {
 
 if (credentialsJson) {
   try {
-    // Parsear el JSON
     const credentials = JSON.parse(credentialsJson);
+    console.log('✅ JSON parseado correctamente');
+    console.log('📍 Keys en credentials:', Object.keys(credentials).join(', '));
     
-    // CRÍTICO: Corregir los saltos de línea en private_key
-    // Railway/Vercel/Render escapan los \n como \\n en variables de entorno
     if (credentials.private_key) {
       const originalKey = credentials.private_key;
       
-      // Detectar si tiene \\n literales (problema común)
+      // Detectar si tiene \\n literales
       if (originalKey.includes('\\n')) {
         console.log('⚠️  Detectados \\\\n literales en private_key, corrigiendo...');
         credentials.private_key = originalKey.replace(/\\n/g, '\n');
@@ -51,49 +58,42 @@ if (credentialsJson) {
       // Normalizar Windows line endings
       credentials.private_key = credentials.private_key.replace(/\r\n/g, '\n');
       
-      // Validar estructura de la llave
+      // Validar estructura
       const hasBegin = credentials.private_key.includes('-----BEGIN PRIVATE KEY-----');
       const hasEnd = credentials.private_key.includes('-----END PRIVATE KEY-----');
       const hasRealNewlines = credentials.private_key.includes('\n');
       
+      console.log('📍 Private key validation:');
+      console.log('   - Has BEGIN:', hasBegin);
+      console.log('   - Has END:', hasEnd);
+      console.log('   - Has newlines:', hasRealNewlines);
+      
       if (!hasBegin || !hasEnd) {
         console.error('❌ La private_key no tiene el formato PEM correcto');
-        console.error('   Debe comenzar con -----BEGIN PRIVATE KEY-----');
-        console.error('   y terminar con -----END PRIVATE KEY-----');
-        process.exit(1);
+        // Continuar de todas formas para ver más logs
       }
       
-      if (!hasRealNewlines) {
-        console.error('❌ La private_key no tiene saltos de línea reales');
-        console.error('   Esto causará ERR_OSSL_UNSUPPORTED');
-        console.error('   Usa GOOGLE_CREDENTIALS_B64 en lugar de GOOGLE_CREDENTIALS_JSON');
-        process.exit(1);
-      }
-      
-      console.log('✅ Private key validada correctamente');
+      console.log('✅ Private key procesada');
     } else {
       console.error('❌ No se encontró private_key en las credenciales');
-      process.exit(1);
     }
     
     // Escribir el archivo
     fs.writeFileSync(credentialsPath, JSON.stringify(credentials, null, 2), 'utf8');
     console.log('✅ google-credentials.json creado correctamente');
-    console.log(`📧 Service Account: ${credentials.client_email}`);
+    console.log('📧 Service Account:', credentials.client_email);
     
   } catch (error) {
     console.error('❌ Error al procesar credenciales:', error.message);
-    if (error.message.includes('JSON')) {
-      console.error('   El contenido no es un JSON válido');
-    }
-    process.exit(1);
+    console.error('   Stack:', error.stack);
+    // Mostrar primeros chars del JSON para debug
+    console.error('   Primeros 100 chars del JSON:', credentialsJson?.substring(0, 100));
   }
 } else {
-  // En desarrollo local, puede existir el archivo directamente
+  // Sin credenciales de entorno
   if (fs.existsSync(credentialsPath)) {
-    console.log('ℹ️  Usando google-credentials.json existente (desarrollo local)');
+    console.log('ℹ️  Usando google-credentials.json existente');
     
-    // Validar que el archivo existente tenga el formato correcto
     try {
       const existing = JSON.parse(fs.readFileSync(credentialsPath, 'utf8'));
       if (existing.private_key && existing.private_key.includes('\\n')) {
@@ -102,16 +102,30 @@ if (credentialsJson) {
         fs.writeFileSync(credentialsPath, JSON.stringify(existing, null, 2), 'utf8');
         console.log('✅ Archivo corregido');
       }
+      console.log('📧 Service Account:', existing.client_email);
     } catch (e) {
       console.warn('⚠️  No se pudo validar el archivo existente:', e.message);
     }
   } else {
-    console.warn('⚠️  No hay credenciales de Google configuradas');
-    console.warn('   Configura GOOGLE_CREDENTIALS_B64 o GOOGLE_CREDENTIALS_JSON');
-
+    console.warn('========================================');
+    console.warn('⚠️  NO HAY CREDENCIALES DE GOOGLE');
+    console.warn('========================================');
+    console.warn('   Variables de entorno disponibles:');
+    console.warn('   - GOOGLE_CREDENTIALS_B64:', !!process.env.GOOGLE_CREDENTIALS_B64);
+    console.warn('   - GOOGLE_CREDENTIALS_JSON:', !!process.env.GOOGLE_CREDENTIALS_JSON);
+    console.warn('');
+    console.warn('   Para configurar, usa GOOGLE_CREDENTIALS_B64 con el JSON en Base64');
+    
+    // En producción, NO hacer exit para poder ver logs del servidor
     if (process.env.NODE_ENV === 'production') {
-      console.error('❌ Producción sin credenciales de Google. Abortando.');
-      process.exit(1);
+      console.warn('');
+      console.warn('⚠️  PRODUCCIÓN: Continuando SIN credenciales de Google');
+      console.warn('   Las APIs de Google NO funcionarán');
+      // NO exit - dejar que el servidor inicie para ver logs
     }
   }
 }
+
+console.log('========================================');
+console.log('🏁 CREATE-GOOGLE-CREDENTIALS.JS TERMINADO');
+console.log('========================================');
