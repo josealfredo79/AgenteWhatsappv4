@@ -1,0 +1,31 @@
+# Ignorar archivos sensibles en Docker build
+.env
+.env.*
+*.env
+google-credentials.json
+*-credentials.json
+*.key
+*.pem
+secrets/
+.secrets/
+
+# Archivos de desarrollo
+attached_assets/
+.git/
+.gitignore
+*.md
+*.txt
+.vscode/
+.idea/
+node_modules/
+.next/
+coverage/
+*.log
+
+# Archivos de Replit
+.replit
+replit.md
+.cache/
+.config/
+.local/
+.upm/
