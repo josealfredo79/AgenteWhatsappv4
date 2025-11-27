@@ -1,5 +1,5 @@
 # Dockerfile para Railway - WhatsApp Agent
-# VERSION: 2025-11-27 21:50 - PRODUCTION READY
+# CACHE_BUSTER: 2025-11-27-v3
 FROM node:18-bullseye-slim
 
 # Establecer directorio de trabajo
@@ -11,11 +11,11 @@ COPY frontend/package*.json ./
 # Instalar dependencias
 RUN npm ci --include=dev
 
-# Copiar el código de frontend
+# Copiar todo el código de frontend (incluyendo start.sh)
 COPY frontend/ .
 
-# Hacer start.sh ejecutable
-RUN chmod +x start.sh
+# Verificar que start.sh existe y hacerlo ejecutable
+RUN ls -la && chmod +x start.sh
 
 # Build de Next.js
 RUN npm run build
