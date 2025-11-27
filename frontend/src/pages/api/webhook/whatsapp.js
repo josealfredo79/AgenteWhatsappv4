@@ -24,7 +24,7 @@ function getGoogleAuth(scopes) {
   });
 }
 
-const SYSTEM_PROMPT = \`Eres un asesor inmobiliario profesional que sigue un FLUJO CONVERSACIONAL estructurado.
+const SYSTEM_PROMPT = `Eres un asesor inmobiliario profesional que sigue un FLUJO CONVERSACIONAL estructurado.
 
 **FLUJO OBLIGATORIO (sigue estos pasos en orden):**
 
@@ -65,7 +65,7 @@ const SYSTEM_PROMPT = \`Eres un asesor inmobiliario profesional que sigue un FLU
 ✅ SIEMPRE termina con una pregunta para continuar el flujo
 ✅ Usa 1-2 emojis (🏡 ✨ 📍 💰)
 
-Zona horaria: America/Mexico_City\`;
+Zona horaria: America/Mexico_City`;
 
 const tools = [
   {
