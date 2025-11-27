@@ -1,10 +1,7 @@
 # Dockerfile para Railway - WhatsApp Agent
-# IMPORTANTE: Usando Debian Bullseye que tiene OpenSSL 1.1 nativo (no 3.0)
+# IMPORTANTE: Usando Debian Bullseye que tiene OpenSSL 1.1 nativo
 
 FROM node:18-bullseye-slim
-
-# Cache buster - cambiar este valor fuerza rebuild completo
-ARG CACHE_BUSTER=20251127v1
 
 # Establecer directorio de trabajo
 WORKDIR /app/frontend
@@ -18,6 +15,9 @@ RUN npm ci --include=dev
 # Copiar el código de frontend
 COPY frontend/ .
 
+# Asegurar que start.sh sea ejecutable
+RUN chmod +x start.sh
+
 # Build de Next.js
 RUN npm run build
 
@@ -28,5 +28,5 @@ ENV PORT=5000
 # Exponer puerto
 EXPOSE 5000
 
-# IMPORTANTE: Ejecutar node directamente, NO npm (evita scripts cacheados)
-CMD ["sh", "-c", "node create-google-credentials.js && node server.js"]
+# Usar script de inicio
+CMD ["./start.sh"]
