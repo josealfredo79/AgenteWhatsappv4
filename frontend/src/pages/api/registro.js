@@ -1,3 +1,29 @@
+/**
+ * @swagger
+ * /api/registro:
+ *   post:
+ *     summary: Registra un cliente en Google Sheets
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               nombre:
+ *                 type: string
+ *               telefono:
+ *                 type: string
+ *               email:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Cliente registrado
+ *       400:
+ *         description: Parámetros inválidos
+ *       500:
+ *         description: Error interno
+ */
 import { google } from 'googleapis';
 import fs from 'fs';
 import path from 'path';

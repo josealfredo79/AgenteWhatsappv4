@@ -1,0 +1,57 @@
+# ========================================
+# ARCHIVOS IMPORTANTES DE TU PROYECTO
+# ========================================
+
+# CONFIGURACIÓN
+.replit                          - Configuración de Replit
+.gitignore                       - Archivos a ignorar en Git
+replit.md                        - Documentación del proyecto
+
+# DOCUMENTACIÓN
+INSTRUCCIONES_RAILWAY.md         - Guía completa migración a Railway
+VARIABLES_ENTORNO_RAILWAY.txt    - Variables de entorno necesarias
+COMANDOS_GIT_RAILWAY.txt         - Comandos Git originales
+COMANDOS_SUBIR_GITHUB.txt        - Comandos para subir a GitHub (NUEVO)
+
+# CÓDIGO PRINCIPAL
+frontend/
+├── server.js                    - Servidor custom Next.js + Socket.io
+├── package.json                 - Dependencias del proyecto
+├── next.config.ts               - Configuración de Next.js
+├── create-google-credentials.js - Genera credenciales desde env var
+├── src/
+│   ├── app/
+│   │   ├── page.tsx             - Página principal
+│   │   └── dashboard/
+│   │       ├── page.tsx         - Dashboard con Socket.io
+│   │       └── layout.tsx       - Layout del dashboard
+│   └── pages/api/
+│       ├── webhook/
+│       │   └── whatsapp.js      - ⭐ WEBHOOK PRINCIPAL (Claude AI + Tools)
+│       ├── conversations.js      - Listar conversaciones
+│       ├── google-docs.js       - Consultar Google Docs
+│       ├── agendar.js           - Agendar citas en Calendar
+│       ├── registro.js          - Registrar en Google Sheets
+│       ├── send-message.js      - Enviar mensajes WhatsApp
+│       └── health.js            - Health check
+
+# ========================================
+# ARCHIVOS QUE SE GENERAN AUTOMÁTICAMENTE
+# (NO están en Git, se crean al ejecutar)
+# ========================================
+frontend/node_modules/           - Dependencias (npm install)
+frontend/.next/                  - Build de Next.js (npm run build)
+frontend/google-credentials.json - Credenciales Google (desde env var)
+
+# ========================================
+# VARIABLES DE ENTORNO NECESARIAS
+# (Configurar en Railway después de migrar)
+# ========================================
+ANTHROPIC_API_KEY               - API key de Claude
+TWILIO_ACCOUNT_SID              - SID de Twilio
+TWILIO_AUTH_TOKEN               - Token de Twilio
+TWILIO_WHATSAPP_NUMBER          - +14155238886
+GOOGLE_CREDENTIALS_JSON         - JSON completo de Service Account
+GOOGLE_SHEET_ID                 - ID de Google Sheet
+GOOGLE_CALENDAR_ID              - tecnologicotlaxiaco@gmail.com
+GOOGLE_DOCS_ID                  - 1CWRkJNcsScJOK-NMxtxnUdpuxrYcqaru5qiu9rHzbbw

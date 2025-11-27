@@ -1,3 +1,23 @@
+/**
+ * @swagger
+ * /api/google-docs:
+ *   get:
+ *     summary: Obtiene el contenido de un Google Doc
+ *     parameters:
+ *       - in: query
+ *         name: docId
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: ID del documento de Google Docs
+ *     responses:
+ *       200:
+ *         description: Contenido del documento
+ *       400:
+ *         description: Parámetros inválidos
+ *       500:
+ *         description: Error interno
+ */
 import { google } from 'googleapis';
 import fs from 'fs';
 import path from 'path';

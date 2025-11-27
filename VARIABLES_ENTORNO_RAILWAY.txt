@@ -1,0 +1,29 @@
+# VARIABLES DE ENTORNO PARA RAILWAY
+# Copia estas variables UNA POR UNA en Railway > Variables
+
+# === ANTHROPIC (Claude AI) ===
+ANTHROPIC_API_KEY=tu_api_key_aqui
+
+# === TWILIO (WhatsApp) ===
+TWILIO_ACCOUNT_SID=tu_sid_aqui
+TWILIO_AUTH_TOKEN=tu_token_aqui
+TWILIO_WHATSAPP_NUMBER=+14155238886
+
+# === GOOGLE APIS ===
+GOOGLE_CREDENTIALS_JSON={"type":"service_account","project_id":"...","private_key_id":"...","private_key":"...","client_email":"...","client_id":"...","auth_uri":"...","token_uri":"...","auth_provider_x509_cert_url":"...","client_x509_cert_url":"..."}
+GOOGLE_CALENDAR_ID=tecnologicotlaxiaco@gmail.com
+GOOGLE_SHEET_ID=1-YTVjIqYO-m1XS_t_MRUlE7O4u_8WXKiZTQLh8BrhSE
+GOOGLE_DOCS_ID=1CWRkJNcsScJOK-NMxtxnUdpuxrYcqaru5qiu9rHzbbw
+
+# === GENERAL ===
+NODE_ENV=production
+
+# === DASHBOARD (OPCIONAL) ===
+NEXT_PUBLIC_DASHBOARD_USER=admin
+NEXT_PUBLIC_DASHBOARD_PASS=admin123
+
+# === NOTAS ===
+# 1. Reemplaza "tu_api_key_aqui", "tu_sid_aqui", etc. con tus valores reales
+# 2. GOOGLE_CREDENTIALS_JSON debe ser el JSON completo en UNA SOLA LÍNEA
+# 3. NO incluyas comillas adicionales alrededor de los valores
+# 4. Railway asignará automáticamente PORT (no lo configures manualmente)

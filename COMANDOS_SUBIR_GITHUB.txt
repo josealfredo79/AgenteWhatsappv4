@@ -1,0 +1,48 @@
+# ========================================
+# COMANDOS PARA SUBIR A GITHUB
+# ========================================
+# Ejecuta estos comandos EN TU COMPUTADORA después de descargar el ZIP
+
+# 1. Descomprimir el ZIP descargado de Replit
+# 2. Abrir terminal en la carpeta del proyecto
+# 3. Ejecutar estos comandos:
+
+# Inicializar repositorio Git (si no existe)
+git init
+
+# Agregar todos los archivos (el .gitignore excluye los sensibles)
+git add .
+
+# Hacer primer commit
+git commit -m "Migración inicial desde Replit - Bot WhatsApp con Claude AI"
+
+# Crear repositorio en GitHub:
+# - Ve a: https://github.com/new
+# - Nombre: agente-whatsapp-v2
+# - NO inicialices con README (ya tienes código)
+# - Haz clic en "Create repository"
+
+# Conectar tu repositorio local con GitHub (reemplaza TU_USUARIO)
+git remote add origin https://github.com/TU_USUARIO/agente-whatsapp-v2.git
+
+# Cambiar a rama main
+git branch -M main
+
+# Subir código a GitHub
+git push -u origin main
+
+# ========================================
+# VERIFICAR QUE TODO SUBIÓ CORRECTAMENTE
+# ========================================
+# Ve a: https://github.com/TU_USUARIO/agente-whatsapp-v2
+# Deberías ver todos tus archivos EXCEPTO:
+# ✅ node_modules (excluido)
+# ✅ .env (excluido)
+# ✅ google-credentials.json (excluido)
+# ✅ .next (excluido)
+
+# ========================================
+# SIGUIENTE PASO: MIGRAR A RAILWAY
+# ========================================
+# Una vez que el código esté en GitHub:
+# Sigue las instrucciones en: INSTRUCCIONES_RAILWAY.md

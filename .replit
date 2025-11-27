@@ -1,0 +1,55 @@
+modules = ["nodejs-20", "bash", "web"]
+[agent]
+expertMode = true
+
+[nix]
+channel = "stable-25_05"
+packages = ["wget", "zip"]
+
+[workflows]
+runButton = "Project"
+
+[[workflows.workflow]]
+name = "Project"
+mode = "parallel"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Start application"
+
+[[workflows.workflow]]
+name = "Start application"
+author = "agent"
+
+[workflows.workflow.metadata]
+outputType = "webview"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cd frontend && npm run dev"
+waitForPort = 5000
+
+[[ports]]
+localPort = 5000
+externalPort = 80
+
+[[ports]]
+localPort = 42961
+externalPort = 3003
+
+[userenv]
+
+[userenv.shared]
+GOOGLE_CALENDAR_ID = "tecnologicotlaxiaco@gmail.com"
+GOOGLE_DOCS_ID = "1CWRkJNcsScJOK-NMxtxnUdpuxrYcqaru5qiu9rHzbbw"
+GOOGLE_SHEET_ID = "1-YTVjIqYO-m1XS_t_MRUlE7O4u_8WXKiZTQLh8BrhSE"
+TWILIO_WHATSAPP_NUMBER = "+14155238886"
+GOOGLE_SERVICE_ACCOUNT_FILE = "/home/runner/workspace/frontend/google-credentials.json"
+NEXT_PUBLIC_DASHBOARD_USER = "admin"
+NEXT_PUBLIC_DASHBOARD_PASS = "admin123"
+
+[deployment]
+deploymentTarget = "vm"
+run = ["sh", "-c", "cd frontend && node create-google-credentials.js && NODE_ENV=production node server.js"]
+build = ["sh", "-c", "cd frontend && npm install && npm run build"]

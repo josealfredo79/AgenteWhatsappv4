@@ -32,8 +32,7 @@ if (credentialsB64) {
     console.log('📍 JSON length después de decode:', credentialsJson.length);
   } catch (err) {
     console.error('❌ Error al decodificar GOOGLE_CREDENTIALS_B64:', err.message);
-    console.error('   Primeros 50 chars del B64:', credentialsB64?.substring(0, 50));
-    // NO exit - continuar para debug
+    // NO mostrar contenido del B64 por seguridad
   }
 } else if (credentialsRaw) {
   credentialsJson = credentialsRaw;
@@ -85,9 +84,7 @@ if (credentialsJson) {
     
   } catch (error) {
     console.error('❌ Error al procesar credenciales:', error.message);
-    console.error('   Stack:', error.stack);
-    // Mostrar primeros chars del JSON para debug
-    console.error('   Primeros 100 chars del JSON:', credentialsJson?.substring(0, 100));
+    // NO mostrar contenido del JSON por seguridad
   }
 } else {
   // Sin credenciales de entorno

@@ -1,0 +1,22 @@
+# Git attributes para proteger archivos sensibles
+# Previene que archivos sensibles se suban accidentalmente
+
+# Archivos de entorno - nunca subir
+.env* filter=git-crypt diff=git-crypt merge=git-crypt
+*.env filter=git-crypt diff=git-crypt merge=git-crypt
+
+# Credenciales - nunca subir
+*credentials*.json filter=git-crypt diff=git-crypt merge=git-crypt
+google-credentials.json filter=git-crypt diff=git-crypt merge=git-crypt
+
+# Keys y certificados - nunca subir
+*.key filter=git-crypt diff=git-crypt merge=git-crypt
+*.pem filter=git-crypt diff=git-crypt merge=git-crypt
+*.p12 filter=git-crypt diff=git-crypt merge=git-crypt
+
+# Forzar LF line endings para archivos de texto
+*.js text eol=lf
+*.ts text eol=lf
+*.json text eol=lf
+*.md text eol=lf
+

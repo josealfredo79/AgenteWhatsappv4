@@ -1,0 +1,16 @@
+# Configuración Nixpacks para Railway - WhatsApp Agent
+# Solo se usa si Railway no detecta el Dockerfile
+
+providers = ["node"]
+
+[variables]
+NIXPACKS_NODE_VERSION = "20"
+
+[phases.install]
+cmds = ["cd frontend && npm ci --include=dev"]
+
+[phases.build]
+cmds = ["cd frontend && npm run build"]
+
+[start]
+cmd = "node frontend/server.js"

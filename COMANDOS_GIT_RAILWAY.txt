@@ -1,0 +1,119 @@
+# COMANDOS PARA SUBIR CÓDIGO A GITHUB Y DEPLOYAR EN RAILWAY
+
+## OPCIÓN 1: Si descargaste el ZIP desde Replit
+
+1. Descomprime el archivo ZIP en tu computadora
+2. Abre una terminal/CMD en esa carpeta
+3. Ejecuta estos comandos:
+
+```bash
+# Inicializar repositorio git
+git init
+
+# Agregar todos los archivos
+git add .
+
+# Hacer commit inicial
+git commit -m "Migración desde Replit a Railway"
+
+# Conectar con GitHub (REEMPLAZA: tu-usuario y nombre-repo)
+git remote add origin https://github.com/tu-usuario/nombre-repo.git
+
+# Subir código
+git branch -M main
+git push -u origin main
+```
+
+---
+
+## OPCIÓN 2: Si ya tienes el código en GitHub
+
+✅ Salta directamente a crear el proyecto en Railway (Paso 3 de INSTRUCCIONES_RAILWAY.md)
+
+---
+
+## OPCIÓN 3: Clonar desde Replit Git (si usas Replit Git)
+
+Si tu proyecto en Replit ya tiene Git configurado:
+
+```bash
+# Ver la URL del repositorio remoto en Replit
+git remote -v
+
+# Clonar ese repositorio en tu computadora
+git clone URL_DEL_REPOSITORIO
+
+# Entrar a la carpeta
+cd nombre-carpeta
+
+# Ya está listo para Railway
+```
+
+---
+
+## COMANDOS ÚTILES DESPUÉS DEL DEPLOY
+
+### Ver el estado del proyecto
+```bash
+railway status
+```
+
+### Ver logs en tiempo real
+```bash
+railway logs --follow
+```
+
+### Redeploy manual
+```bash
+railway up
+```
+
+### Ver variables de entorno configuradas
+```bash
+railway variables
+```
+
+### Abrir el proyecto en el navegador
+```bash
+railway open
+```
+
+---
+
+## TROUBLESHOOTING
+
+### Error: "fatal: not a git repository"
+Solución: Ejecuta primero `git init`
+
+### Error: "remote origin already exists"
+Solución: Ejecuta `git remote remove origin` y luego vuelve a agregar
+
+### Error: "Permission denied (publickey)"
+Solución: Configura tu SSH key en GitHub o usa HTTPS
+
+### Error: "Updates were rejected"
+Solución: Ejecuta `git pull origin main --rebase` y luego `git push`
+
+---
+
+## NOTAS IMPORTANTES
+
+1. **No subas archivos sensibles** como:
+   - `google-credentials.json` (se crea automáticamente desde variable de entorno)
+   - `.env` (usa variables de entorno de Railway)
+   - `node_modules/` (Railway lo instala automáticamente)
+
+2. **Verifica el .gitignore** antes de hacer push:
+   ```
+   node_modules/
+   .next/
+   google-credentials.json
+   .env
+   .env.local
+   ```
+
+3. **Railway hace autodeploy**: Cada vez que hagas `git push`, Railway redeploya automáticamente
+
+---
+
+¿Necesitas ayuda? Pregunta en Railway Discord: https://discord.gg/railway
