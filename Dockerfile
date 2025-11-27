@@ -1,16 +1,15 @@
 # Dockerfile para Railway - WhatsApp Agent
-# Usando Node.js 18 LTS para compatibilidad con OpenSSL 1.1 (evita ERR_OSSL_UNSUPPORTED)
+# Usando Node.js 18 con Debian Bullseye (tiene OpenSSL 1.1, evita ERR_OSSL_UNSUPPORTED)
 
-FROM node:18-alpine
+FROM node:18-bullseye-slim
 
 # Instalar dependencias del sistema
-RUN apk add --no-cache libc6-compat
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
 
 # Establecer directorio de trabajo
 WORKDIR /app/frontend
-
-# Variable de entorno para OpenSSL legacy (por si acaso)
-ENV NODE_OPTIONS="--openssl-legacy-provider"
 
 # Copiar package.json primero para cache de dependencias
 COPY frontend/package*.json ./
