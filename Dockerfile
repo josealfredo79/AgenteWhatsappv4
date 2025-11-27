@@ -1,24 +1,29 @@
 # Dockerfile para Railway - WhatsApp Agent
-# REBUILD: 2025-11-27-v4-force
+# VERSION: 2025-11-27-v5-npm-start
 FROM node:18-bullseye-slim
 
 WORKDIR /app/frontend
 
+# Copiar package files
 COPY frontend/package*.json ./
 
-RUN npm ci --include=dev
+# Instalar TODAS las dependencias (incluyendo dev para build)
+RUN npm ci
 
-# Copiar código - IMPORTANTE: esto incluye start.sh
+# Copiar código
 COPY frontend/ ./
 
-# Verificar archivos y hacer ejecutable con ruta explícita
-RUN echo "=== Archivos copiados ===" && ls -la ./ && chmod +x ./start.sh
-
+# Build de Next.js
 RUN npm run build
 
+# Limpiar devDependencies para imagen más ligera
+RUN npm prune --production
+
+# Variables de entorno
 ENV NODE_ENV=production
 ENV PORT=5000
 
 EXPOSE 5000
 
-CMD ["./start.sh"]
+# Usar npm start directamente - ejecuta prestart + start
+CMD ["npm", "start"]
