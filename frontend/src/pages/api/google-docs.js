@@ -1,37 +1,32 @@
-/**
- * @swagger
- * /api/google-docs:
- *   get:
- *     summary: Obtiene el contenido de un Google Doc
- *     parameters:
- *       - in: query
- *         name: docId
- *         schema:
- *           type: string
- *         required: true
- *         description: ID del documento de Google Docs
- *     responses:
- *       200:
- *         description: Contenido del documento
- *       400:
- *         description: Parámetros inválidos
- *       500:
- *         description: Error interno
- */
 import { google } from 'googleapis';
+import fs from 'fs';
 import path from 'path';
 
-const getKeyFile = () => process.env.GOOGLE_SERVICE_ACCOUNT_FILE || path.join(process.cwd(), 'google-credentials.json');
+function getGoogleAuth(scopes) {
+  const keyFile = process.env.GOOGLE_SERVICE_ACCOUNT_FILE || 
+                  path.join(process.cwd(), 'google-credentials.json');
+  
+  const credentialsRaw = fs.readFileSync(keyFile, 'utf8');
+  const credentials = JSON.parse(credentialsRaw);
+  
+  if (credentials.private_key) {
+    credentials.private_key = credentials.private_key
+      .split('\\n').join('\n')
+      .replace(/\r\n/g, '\n');
+  }
+  
+  return new google.auth.GoogleAuth({
+    credentials,
+    scopes: Array.isArray(scopes) ? scopes : [scopes]
+  });
+}
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).json({ error: 'Método no permitido' });
   const { docId } = req.query;
   if (!docId) return res.status(400).json({ error: 'Falta el parámetro docId' });
   try {
-    const auth = new google.auth.GoogleAuth({
-      keyFile: getKeyFile(),
-      scopes: ['https://www.googleapis.com/auth/documents.readonly'],
-    });
+    const auth = getGoogleAuth(['https://www.googleapis.com/auth/documents.readonly']);
     const docs = google.docs({ version: 'v1', auth });
     const response = await docs.documents.get({ documentId: docId });
     res.status(200).json({ content: response.data });

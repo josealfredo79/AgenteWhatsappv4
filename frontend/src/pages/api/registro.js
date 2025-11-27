@@ -1,34 +1,25 @@
-
-/**
- * @swagger
- * /api/registro:
- *   post:
- *     summary: Registra un cliente en Google Sheets
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               nombre:
- *                 type: string
- *               telefono:
- *                 type: string
- *               email:
- *                 type: string
- *     responses:
- *       200:
- *         description: Cliente registrado
- *       400:
- *         description: Parámetros inválidos
- *       500:
- *         description: Error interno
- */
 import { google } from 'googleapis';
+import fs from 'fs';
 import path from 'path';
 
-const getKeyFile = () => process.env.GOOGLE_SERVICE_ACCOUNT_FILE || path.join(process.cwd(), 'google-credentials.json');
+function getGoogleAuth(scopes) {
+  const keyFile = process.env.GOOGLE_SERVICE_ACCOUNT_FILE || 
+                  path.join(process.cwd(), 'google-credentials.json');
+  
+  const credentialsRaw = fs.readFileSync(keyFile, 'utf8');
+  const credentials = JSON.parse(credentialsRaw);
+  
+  if (credentials.private_key) {
+    credentials.private_key = credentials.private_key
+      .split('\\n').join('\n')
+      .replace(/\r\n/g, '\n');
+  }
+  
+  return new google.auth.GoogleAuth({
+    credentials,
+    scopes: Array.isArray(scopes) ? scopes : [scopes]
+  });
+}
 
 export default async function handler(req, res) {
   if (req.method === 'POST') {
@@ -37,12 +28,7 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Faltan datos de registro' });
     }
     try {
-      const auth = new google.auth.GoogleAuth({
-        keyFile: getKeyFile(),
-        scopes: [
-          'https://www.googleapis.com/auth/spreadsheets',
-        ],
-      });
+      const auth = getGoogleAuth(['https://www.googleapis.com/auth/spreadsheets']);
       const sheets = google.sheets({ version: 'v4', auth });
       const spreadsheetId = process.env.GOOGLE_SHEET_ID;
       const range = 'Clientes!A:C';
@@ -57,15 +43,9 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: 'Error al registrar cliente', details: error.message });
     }
   }
-  // Ejemplo de consulta (GET): obtener todos los registros
   if (req.method === 'GET') {
     try {
-      const auth = new google.auth.GoogleAuth({
-        keyFile: getKeyFile(),
-        scopes: [
-          'https://www.googleapis.com/auth/spreadsheets.readonly',
-        ],
-      });
+      const auth = getGoogleAuth(['https://www.googleapis.com/auth/spreadsheets.readonly']);
       const sheets = google.sheets({ version: 'v4', auth });
       const spreadsheetId = process.env.GOOGLE_SHEET_ID;
       const range = 'Clientes!A:C';

@@ -2,11 +2,29 @@ import { Anthropic } from '@anthropic-ai/sdk';
 import twilio from 'twilio';
 import { google } from 'googleapis';
 import { DateTime } from 'luxon';
+import fs from 'fs';
 import path from 'path';
 
-const getKeyFile = () => process.env.GOOGLE_SERVICE_ACCOUNT_FILE || path.join(process.cwd(), 'google-credentials.json');
+function getGoogleAuth(scopes) {
+  const keyFile = process.env.GOOGLE_SERVICE_ACCOUNT_FILE || 
+                  path.join(process.cwd(), 'google-credentials.json');
+  
+  const credentialsRaw = fs.readFileSync(keyFile, 'utf8');
+  const credentials = JSON.parse(credentialsRaw);
+  
+  if (credentials.private_key) {
+    credentials.private_key = credentials.private_key
+      .split('\\n').join('\n')
+      .replace(/\r\n/g, '\n');
+  }
+  
+  return new google.auth.GoogleAuth({
+    credentials,
+    scopes: Array.isArray(scopes) ? scopes : [scopes]
+  });
+}
 
-const SYSTEM_PROMPT = `Eres un asesor inmobiliario profesional que sigue un FLUJO CONVERSACIONAL estructurado.
+const SYSTEM_PROMPT = \`Eres un asesor inmobiliario profesional que sigue un FLUJO CONVERSACIONAL estructurado.
 
 **FLUJO OBLIGATORIO (sigue estos pasos en orden):**
 
@@ -47,57 +65,32 @@ const SYSTEM_PROMPT = `Eres un asesor inmobiliario profesional que sigue un FLUJ
 ✅ SIEMPRE termina con una pregunta para continuar el flujo
 ✅ Usa 1-2 emojis (🏡 ✨ 📍 💰)
 
-**FORMATO DE RESPUESTA:**
-[Respuesta breve basada en lo que preguntó]
-[Pregunta de seguimiento para avanzar en el flujo]
-
-Zona horaria: America/Mexico_City`;
+Zona horaria: America/Mexico_City\`;
 
 const tools = [
   {
     name: 'consultar_documentos',
-    description: 'Consulta información de los documentos de Google Docs disponibles sobre terrenos, propiedades, precios, ubicaciones y servicios. Usa esta herramienta PRIMERO cuando el cliente pregunte sobre información del negocio.',
+    description: 'Consulta información de los documentos de Google Docs disponibles sobre terrenos, propiedades, precios, ubicaciones y servicios.',
     input_schema: {
       type: 'object',
       properties: {
-        query: {
-          type: 'string',
-          description: 'Consulta específica del cliente (ej: "terrenos disponibles", "precios", "ubicaciones")'
-        }
+        query: { type: 'string', description: 'Consulta específica del cliente' }
       },
       required: ['query']
     }
   },
   {
     name: 'agendar_cita',
-    description: 'Agenda una cita en Google Calendar. Usa esta herramienta SOLO cuando el cliente confirme que desea agendar una visita o reunión.',
+    description: 'Agenda una cita en Google Calendar.',
     input_schema: {
       type: 'object',
       properties: {
-        resumen: {
-          type: 'string',
-          description: 'Título breve de la cita (ej: "Cita con Juan Pérez")'
-        },
-        descripcion: {
-          type: 'string',
-          description: 'Descripción detallada de la cita incluyendo motivo y datos del cliente'
-        },
-        fecha: {
-          type: 'string',
-          description: 'Fecha de la cita en formato YYYY-MM-DD (ej: "2025-11-21")'
-        },
-        hora_inicio: {
-          type: 'string',
-          description: 'Hora de inicio en formato HH:MM 24hrs (ej: "14:30")'
-        },
-        duracion_minutos: {
-          type: 'number',
-          description: 'Duración de la cita en minutos (default: 60)'
-        },
-        email_cliente: {
-          type: 'string',
-          description: 'Email del cliente (si lo proporcionó)'
-        }
+        resumen: { type: 'string', description: 'Título breve de la cita' },
+        descripcion: { type: 'string', description: 'Descripción de la cita' },
+        fecha: { type: 'string', description: 'Fecha en formato YYYY-MM-DD' },
+        hora_inicio: { type: 'string', description: 'Hora en formato HH:MM' },
+        duracion_minutos: { type: 'number', description: 'Duración en minutos' },
+        email_cliente: { type: 'string', description: 'Email del cliente' }
       },
       required: ['resumen', 'fecha', 'hora_inicio']
     }
@@ -106,15 +99,9 @@ const tools = [
 
 async function consultarDocumentos({ query }) {
   try {
-    const auth = new google.auth.GoogleAuth({
-      keyFile: getKeyFile(),
-      scopes: ['https://www.googleapis.com/auth/documents.readonly'],
-    });
-    
+    const auth = getGoogleAuth(['https://www.googleapis.com/auth/documents.readonly']);
     const docs = google.docs({ version: 'v1', auth });
     const docId = process.env.GOOGLE_DOCS_ID;
-    
-    console.log('📄 Consultando Google Doc:', docId, '| Query:', query);
     
     const response = await docs.documents.get({ documentId: docId });
     const content = response.data.body.content;
@@ -123,80 +110,54 @@ async function consultarDocumentos({ query }) {
     content.forEach(element => {
       if (element.paragraph) {
         element.paragraph.elements.forEach(e => {
-          if (e.textRun) {
-            fullText += e.textRun.content;
-          }
+          if (e.textRun) fullText += e.textRun.content;
         });
       }
     });
     
-    console.log('✅ Documento obtenido, texto length:', fullText.length);
-    
-    return {
-      success: true,
-      content: fullText,
-      query: query
-    };
+    return { success: true, content: fullText, query };
   } catch (error) {
-    console.error('❌ Error al consultar documentos:', error);
+    console.error('Error al consultar documentos:', error);
     return { success: false, error: error.message };
   }
 }
 
 async function guardarMensajeEnSheet({ telefono, direccion, mensaje, messageId }) {
   try {
-    const auth = new google.auth.GoogleAuth({
-      keyFile: getKeyFile(),
-      scopes: ['https://www.googleapis.com/auth/spreadsheets'],
-    });
-    
+    const auth = getGoogleAuth(['https://www.googleapis.com/auth/spreadsheets']);
     const sheets = google.sheets({ version: 'v4', auth });
     const spreadsheetId = process.env.GOOGLE_SHEET_ID;
-    
-    const timestamp = DateTime.now().setZone('America/Mexico_City').toFormat('yyyy-MM-dd\'T\'HH:mm:ss');
+    const timestamp = DateTime.now().setZone('America/Mexico_City').toFormat("yyyy-MM-dd'T'HH:mm:ss");
     
     await sheets.spreadsheets.values.append({
       spreadsheetId,
       range: 'Mensajes!A:E',
       valueInputOption: 'USER_ENTERED',
-      requestBody: {
-        values: [[timestamp, telefono || '', direccion || '', mensaje || '', messageId || '']]
-      }
+      requestBody: { values: [[timestamp, telefono || '', direccion || '', mensaje || '', messageId || '']] }
     });
-    
-    console.log('✅ Mensaje guardado en Google Sheet');
     return { success: true };
   } catch (error) {
-    console.error('❌ Error al guardar mensaje:', error);
+    console.error('Error al guardar mensaje:', error);
     return { success: false, error: error.message };
   }
 }
 
 async function guardarClienteEnSheet({ nombre, email, telefono, servicio, cita }) {
   try {
-    const auth = new google.auth.GoogleAuth({
-      keyFile: getKeyFile(),
-      scopes: ['https://www.googleapis.com/auth/spreadsheets'],
-    });
-    
+    const auth = getGoogleAuth(['https://www.googleapis.com/auth/spreadsheets']);
     const sheets = google.sheets({ version: 'v4', auth });
     const spreadsheetId = process.env.GOOGLE_SHEET_ID;
-    
-    const timestamp = DateTime.now().setZone('America/Mexico_City').toFormat('yyyy-MM-dd\'T\'HH:mm:ss.SSSZZZ');
+    const timestamp = DateTime.now().setZone('America/Mexico_City').toFormat("yyyy-MM-dd'T'HH:mm:ss.SSSZZZ");
     
     await sheets.spreadsheets.values.append({
       spreadsheetId,
       range: 'Clientes!A:E',
       valueInputOption: 'USER_ENTERED',
-      requestBody: {
-        values: [[timestamp, email || '', nombre || '', telefono || '', cita || servicio || '']]
-      }
+      requestBody: { values: [[timestamp, email || '', nombre || '', telefono || '', cita || servicio || '']] }
     });
-    
-    console.log('✅ Cliente guardado en Google Sheet');
     return { success: true };
   } catch (error) {
-    console.error('❌ Error al guardar cliente:', error);
+    console.error('Error al guardar cliente:', error);
     return { success: false, error: error.message };
   }
 }
@@ -204,220 +165,113 @@ async function guardarClienteEnSheet({ nombre, email, telefono, servicio, cita }
 async function agendarCita({ resumen, descripcion = '', fecha, hora_inicio, duracion_minutos = 60, email_cliente, nombre_cliente, telefono_cliente }) {
   try {
     const TIMEZONE = 'America/Mexico_City';
-    const auth = new google.auth.GoogleAuth({
-      keyFile: getKeyFile(),
-      scopes: ['https://www.googleapis.com/auth/calendar'],
-    });
-    
+    const auth = getGoogleAuth(['https://www.googleapis.com/auth/calendar']);
     const calendar = google.calendar({ version: 'v3', auth });
     const calendarId = process.env.GOOGLE_CALENDAR_ID;
     
     const [year, month, day] = fecha.split('-').map(Number);
     const [horas, minutos] = hora_inicio.split(':').map(Number);
     
-    const inicio = DateTime.fromObject({
-      year,
-      month,
-      day,
-      hour: horas,
-      minute: minutos,
-      second: 0
-    }, { zone: TIMEZONE });
-    
+    const inicio = DateTime.fromObject({ year, month, day, hour: horas, minute: minutos, second: 0 }, { zone: TIMEZONE });
     const fin = inicio.plus({ minutes: duracion_minutos });
     
     const event = {
       summary: resumen,
-      description: `${descripcion}\n\nAgendado vía WhatsApp${email_cliente ? `\nEmail: ${email_cliente}` : ''}`,
-      start: { 
-        dateTime: inicio.toISO({ suppressMilliseconds: true }), 
-        timeZone: TIMEZONE 
-      },
-      end: { 
-        dateTime: fin.toISO({ suppressMilliseconds: true }), 
-        timeZone: TIMEZONE 
-      }
+      description: descripcion + (email_cliente ? '\nEmail: ' + email_cliente : ''),
+      start: { dateTime: inicio.toISO({ suppressMilliseconds: true }), timeZone: TIMEZONE },
+      end: { dateTime: fin.toISO({ suppressMilliseconds: true }), timeZone: TIMEZONE }
     };
     
-    console.log('📅 Agendando cita:', JSON.stringify(event, null, 2));
-    
     const result = await calendar.events.insert({ calendarId, requestBody: event });
-    
-    const eventLink = result.data.htmlLink || `https://calendar.google.com/calendar/event?eid=${result.data.id}`;
-    
-    console.log('🔗 Link del evento:', eventLink);
+    const eventLink = result.data.htmlLink;
     
     await guardarClienteEnSheet({
       nombre: nombre_cliente || resumen,
       email: email_cliente,
       telefono: telefono_cliente,
-      servicio: '',
-      cita: `Cita ${inicio.toFormat('dd/MM/yyyy HH:mm')} - ${eventLink}`
+      cita: 'Cita ' + inicio.toFormat('dd/MM/yyyy HH:mm') + ' - ' + eventLink
     });
     
-    return { 
-      success: true, 
-      eventId: result.data.id,
-      eventLink: eventLink,
-      inicio: inicio.toFormat('dd/MM/yyyy HH:mm'),
-      fin: fin.toFormat('dd/MM/yyyy HH:mm'),
-      crossesMidnight: inicio.day !== fin.day
-    };
+    return { success: true, eventId: result.data.id, eventLink, inicio: inicio.toFormat('dd/MM/yyyy HH:mm') };
   } catch (error) {
-    console.error('❌ Error al agendar cita:', error);
+    console.error('Error al agendar cita:', error);
     return { success: false, error: error.message };
   }
 }
 
 export default async function handler(req, res) {
-  console.log('🔵 Webhook WhatsApp recibido:', req.method, req.url);
-  console.log('📦 Body completo:', JSON.stringify(req.body, null, 2));
-  
-  if (req.method !== 'POST') {
-    console.log('❌ Método no permitido:', req.method);
-    return res.status(405).end();
-  }
+  if (req.method !== 'POST') return res.status(405).end();
   
   const { Body, From, MessageSid } = req.body;
-  console.log('📨 From:', From, '| Message:', Body);
-  
-  if (!Body || !From) {
-    console.log('❌ Faltan parámetros');
-    return res.status(400).json({ error: 'Faltan parámetros Body o From' });
-  }
+  if (!Body || !From) return res.status(400).json({ error: 'Faltan parámetros' });
   
   const telefono = From.replace('whatsapp:', '');
+  await guardarMensajeEnSheet({ telefono, direccion: 'inbound', mensaje: Body, messageId: MessageSid });
   
-  await guardarMensajeEnSheet({
-    telefono,
-    direccion: 'inbound',
-    mensaje: Body,
-    messageId: MessageSid
-  });
-  
-  // Detectar saludos simples y responder directamente sin Claude
   const mensajeNormalizado = Body.toLowerCase().trim();
-  const saludosSimples = /^(hola|hi|hello|hey|buenos días|buenas tardes|buenas noches|qué tal|cómo estás|que tal|como estas|saludos|hola\?|hola!|👋|hola 👋)$/i;
+  const saludosSimples = /^(hola|hi|hello|hey|buenos días|buenas tardes|buenas noches|qué tal|cómo estás|que tal|como estas|saludos)$/i;
   
   if (saludosSimples.test(mensajeNormalizado)) {
-    console.log('👋 Saludo simple detectado, respondiendo directamente');
-    
-    const respuestasSaludos = [
-      '¡Hola! 👋 ¿En qué puedo ayudarte hoy?',
-      '¡Hola! 😊 ¿Buscas algún terreno o propiedad en particular?',
-      '¡Buenos días! ✨ ¿En qué te puedo asistir?'
-    ];
-    
+    const respuestasSaludos = ['¡Hola! 👋 ¿En qué puedo ayudarte hoy?', '¡Hola! 😊 ¿Buscas algún terreno o propiedad?'];
     const respuestaRandom = respuestasSaludos[Math.floor(Math.random() * respuestasSaludos.length)];
     
     const client = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
-    const whatsappNumber = process.env.TWILIO_WHATSAPP_NUMBER;
-    
     const twilioMsg = await client.messages.create({
-      from: `whatsapp:${whatsappNumber}`,
+      from: 'whatsapp:' + process.env.TWILIO_WHATSAPP_NUMBER,
       to: From,
       body: respuestaRandom
     });
     
-    console.log('✅ Saludo enviado directamente, SID:', twilioMsg.sid);
-    
-    await guardarMensajeEnSheet({
-      telefono,
-      direccion: 'outbound',
-      mensaje: respuestaRandom,
-      messageId: twilioMsg.sid
-    });
-    
-    return res.status(200).json({ success: true, sid: twilioMsg.sid, direct: true });
+    await guardarMensajeEnSheet({ telefono, direccion: 'outbound', mensaje: respuestaRandom, messageId: twilioMsg.sid });
+    return res.status(200).json({ success: true, sid: twilioMsg.sid });
   }
   
   try {
-    console.log('🤖 Iniciando Claude...');
     const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
     let messages = [{ role: 'user', content: Body }];
-    let finalResponse = '';
     
-    console.log('📤 Enviando a Claude:', Body);
     let response = await anthropic.messages.create({
       model: 'claude-haiku-4-5',
       max_tokens: 300,
       system: SYSTEM_PROMPT,
-      tools: tools,
-      messages: messages
+      tools,
+      messages
     });
-    console.log('✅ Respuesta de Claude recibida, stop_reason:', response.stop_reason);
     
     while (response.stop_reason === 'tool_use') {
       const toolUse = response.content.find(block => block.type === 'tool_use');
-      
       if (!toolUse) break;
       
       let toolResult = null;
+      if (toolUse.name === 'consultar_documentos') toolResult = await consultarDocumentos(toolUse.input);
+      else if (toolUse.name === 'agendar_cita') toolResult = await agendarCita(toolUse.input);
       
-      console.log('🔧 Claude quiere usar herramienta:', toolUse.name);
-      console.log('📥 Input:', JSON.stringify(toolUse.input, null, 2));
-      
-      if (toolUse.name === 'consultar_documentos') {
-        toolResult = await consultarDocumentos(toolUse.input);
-      } else if (toolUse.name === 'agendar_cita') {
-        toolResult = await agendarCita(toolUse.input);
-      }
-      
-      console.log('📤 Resultado de herramienta:', JSON.stringify(toolResult, null, 2));
-      
-      messages.push({
-        role: 'assistant',
-        content: response.content
-      });
-      
-      const resultString = typeof toolResult === 'string' ? toolResult : JSON.stringify(toolResult);
-      
-      messages.push({
-        role: 'user',
-        content: [{
-          type: 'tool_result',
-          tool_use_id: toolUse.id,
-          content: resultString
-        }]
-      });
+      messages.push({ role: 'assistant', content: response.content });
+      messages.push({ role: 'user', content: [{ type: 'tool_result', tool_use_id: toolUse.id, content: JSON.stringify(toolResult) }] });
       
       response = await anthropic.messages.create({
         model: 'claude-haiku-4-5',
         max_tokens: 300,
         system: SYSTEM_PROMPT,
-        tools: tools,
-        messages: messages
+        tools,
+        messages
       });
     }
     
     const textContent = response.content.find(block => block.type === 'text');
-    finalResponse = textContent?.text || 'No se pudo generar respuesta.';
-    
-    console.log('💬 Respuesta final de Claude:', finalResponse);
-    console.log('📞 Enviando WhatsApp a:', From);
+    const finalResponse = textContent?.text || 'No se pudo generar respuesta.';
     
     const client = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
-    const whatsappNumber = process.env.TWILIO_WHATSAPP_NUMBER;
-    
     const twilioMsg = await client.messages.create({
-      from: `whatsapp:${whatsappNumber}`,
+      from: 'whatsapp:' + process.env.TWILIO_WHATSAPP_NUMBER,
       to: From,
       body: finalResponse
     });
     
-    console.log('✅ WhatsApp enviado, SID:', twilioMsg.sid);
-    
-    await guardarMensajeEnSheet({
-      telefono,
-      direccion: 'outbound',
-      mensaje: finalResponse,
-      messageId: twilioMsg.sid
-    });
-    
+    await guardarMensajeEnSheet({ telefono, direccion: 'outbound', mensaje: finalResponse, messageId: twilioMsg.sid });
     return res.status(200).json({ success: true, sid: twilioMsg.sid });
   } catch (error) {
-    console.error('❌ Error en webhook WhatsApp:', error);
-    console.error('Stack:', error.stack);
-    return res.status(500).json({ error: 'Error en webhook WhatsApp', message: error.message });
+    console.error('Error en webhook:', error);
+    return res.status(500).json({ error: error.message });
   }
 }

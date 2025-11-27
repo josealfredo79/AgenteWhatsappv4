@@ -1,16 +1,31 @@
 import { google } from 'googleapis';
+import fs from 'fs';
 import path from 'path';
 
-const getKeyFile = () => process.env.GOOGLE_SERVICE_ACCOUNT_FILE || path.join(process.cwd(), 'google-credentials.json');
+function getGoogleAuth(scopes) {
+  const keyFile = process.env.GOOGLE_SERVICE_ACCOUNT_FILE || 
+                  path.join(process.cwd(), 'google-credentials.json');
+  
+  const credentialsRaw = fs.readFileSync(keyFile, 'utf8');
+  const credentials = JSON.parse(credentialsRaw);
+  
+  if (credentials.private_key) {
+    credentials.private_key = credentials.private_key
+      .split('\\n').join('\n')
+      .replace(/\r\n/g, '\n');
+  }
+  
+  return new google.auth.GoogleAuth({
+    credentials,
+    scopes: Array.isArray(scopes) ? scopes : [scopes]
+  });
+}
 
 export default async function handler(req, res) {
   const { query: { id } } = req;
 
   try {
-    const auth = new google.auth.GoogleAuth({
-      keyFile: getKeyFile(),
-      scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'],
-    });
+    const auth = getGoogleAuth(['https://www.googleapis.com/auth/spreadsheets.readonly']);
 
     const sheets = google.sheets({ version: 'v4', auth });
     const spreadsheetId = process.env.GOOGLE_SHEET_ID;

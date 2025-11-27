@@ -1,7 +1,25 @@
 import { google } from 'googleapis';
+import fs from 'fs';
 import path from 'path';
 
-const getKeyFile = () => process.env.GOOGLE_SERVICE_ACCOUNT_FILE || path.join(process.cwd(), 'google-credentials.json');
+function getGoogleAuth(scopes) {
+  const keyFile = process.env.GOOGLE_SERVICE_ACCOUNT_FILE || 
+                  path.join(process.cwd(), 'google-credentials.json');
+  
+  const credentialsRaw = fs.readFileSync(keyFile, 'utf8');
+  const credentials = JSON.parse(credentialsRaw);
+  
+  if (credentials.private_key) {
+    credentials.private_key = credentials.private_key
+      .split('\\n').join('\n')
+      .replace(/\r\n/g, '\n');
+  }
+  
+  return new google.auth.GoogleAuth({
+    credentials,
+    scopes: Array.isArray(scopes) ? scopes : [scopes]
+  });
+}
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end();
@@ -10,12 +28,7 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Faltan datos para agendar' });
   }
   try {
-    const auth = new google.auth.GoogleAuth({
-      keyFile: getKeyFile(),
-      scopes: [
-        'https://www.googleapis.com/auth/calendar',
-      ],
-    });
+    const auth = getGoogleAuth(['https://www.googleapis.com/auth/calendar']);
     const calendar = google.calendar({ version: 'v3', auth });
     const calendarId = process.env.GOOGLE_CALENDAR_ID;
     const event = {
