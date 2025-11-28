@@ -68,3 +68,4 @@ temp/
 
 # Attached assets - Ignorar toda la carpeta para evitar filtrar secretos
 attached_assets/
+*.zip
