@@ -24,36 +24,168 @@ function getGoogleAuth(scopes) {
   });
 }
 
-const SYSTEM_PROMPT = `Eres un asesor inmobiliario profesional.
+async function obtenerEstadoConversacion(telefono) {
+  try {
+    const auth = getGoogleAuth(['https://www.googleapis.com/auth/spreadsheets']);
+    const sheets = google.sheets({ version: 'v4', auth });
+    const spreadsheetId = process.env.GOOGLE_SHEET_ID;
+    
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId,
+      range: 'Estados!A:G'
+    });
+    
+    const rows = response.data.values || [];
+    const estadoRow = rows.find(row => row[0] === telefono);
+    
+    if (estadoRow) {
+      return {
+        telefono: estadoRow[0],
+        tipo_propiedad: estadoRow[1] || '',
+        zona: estadoRow[2] || '',
+        presupuesto: estadoRow[3] || '',
+        etapa: estadoRow[4] || 'inicial',
+        resumen: estadoRow[5] || '',
+        ultima_actualizacion: estadoRow[6] || ''
+      };
+    }
+    
+    return {
+      telefono,
+      tipo_propiedad: '',
+      zona: '',
+      presupuesto: '',
+      etapa: 'inicial',
+      resumen: '',
+      ultima_actualizacion: ''
+    };
+  } catch (error) {
+    console.error('Error obtener estado:', error.message);
+    return {
+      telefono,
+      tipo_propiedad: '',
+      zona: '',
+      presupuesto: '',
+      etapa: 'inicial',
+      resumen: '',
+      ultima_actualizacion: ''
+    };
+  }
+}
 
-**TU REGLA MÁS IMPORTANTE: NUNCA repitas una pregunta que ya fue contestada en la conversación.**
+async function guardarEstadoConversacion(estado) {
+  try {
+    const auth = getGoogleAuth(['https://www.googleapis.com/auth/spreadsheets']);
+    const sheets = google.sheets({ version: 'v4', auth });
+    const spreadsheetId = process.env.GOOGLE_SHEET_ID;
+    
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId,
+      range: 'Estados!A:A'
+    });
+    
+    const rows = response.data.values || [];
+    const rowIndex = rows.findIndex(row => row[0] === estado.telefono);
+    
+    const timestamp = DateTime.now().setZone('America/Mexico_City').toFormat('yyyy-MM-dd HH:mm:ss');
+    const rowData = [
+      estado.telefono,
+      estado.tipo_propiedad || '',
+      estado.zona || '',
+      estado.presupuesto || '',
+      estado.etapa || 'inicial',
+      estado.resumen || '',
+      timestamp
+    ];
+    
+    if (rowIndex > -1) {
+      await sheets.spreadsheets.values.update({
+        spreadsheetId,
+        range: `Estados!A${rowIndex + 1}:G${rowIndex + 1}`,
+        valueInputOption: 'USER_ENTERED',
+        requestBody: { values: [rowData] }
+      });
+    } else {
+      await sheets.spreadsheets.values.append({
+        spreadsheetId,
+        range: 'Estados!A:G',
+        valueInputOption: 'USER_ENTERED',
+        requestBody: { values: [rowData] }
+      });
+    }
+    
+    console.log('💾 Estado guardado para', estado.telefono);
+    return { success: true };
+  } catch (error) {
+    console.error('Error guardar estado:', error.message);
+    return { success: false };
+  }
+}
 
-Antes de responder, ANALIZA todo el historial de mensajes y extrae:
-- ¿Qué tipo de propiedad busca? (terreno, casa, departamento)
-- ¿En qué zona/ciudad?
-- ¿Cuál es su presupuesto?
-- ¿Qué tamaño?
+function construirPromptConEstado(estado) {
+  let infoConocida = [];
+  
+  if (estado.tipo_propiedad) {
+    infoConocida.push(`- Tipo de propiedad: ${estado.tipo_propiedad}`);
+  }
+  if (estado.zona) {
+    infoConocida.push(`- Zona/Ciudad: ${estado.zona}`);
+  }
+  if (estado.presupuesto) {
+    infoConocida.push(`- Presupuesto: ${estado.presupuesto}`);
+  }
+  
+  const estadoTexto = infoConocida.length > 0 
+    ? `\n\n**INFORMACIÓN YA RECOPILADA DEL CLIENTE:**\n${infoConocida.join('\n')}\n\n**IMPORTANTE: NO vuelvas a preguntar por esta información.**`
+    : '';
+  
+  return `Eres un asesor inmobiliario profesional y amigable.
+${estadoTexto}
 
-**FLUJO:**
-1. Si NO sabes qué busca → pregunta tipo de propiedad
-2. Si ya sabes tipo pero NO zona → pregunta zona/ciudad
-3. Si ya sabes tipo y zona pero NO presupuesto → pregunta presupuesto
-4. Si ya tienes tipo + zona + presupuesto → usa consultar_documentos y muestra opciones
+**FLUJO DE CONVERSACIÓN:**
+1. Si NO sabes tipo de propiedad → pregunta qué busca (terreno, casa, departamento)
+2. Si ya sabes tipo pero NO zona → pregunta en qué zona o ciudad
+3. Si ya sabes tipo y zona pero NO presupuesto → pregunta presupuesto aproximado
+4. Si ya tienes TODO (tipo + zona + presupuesto) → usa consultar_documentos para buscar opciones
 
-**FORMATO:**
-- Máximo 3-4 líneas
-- Resume lo que YA sabes antes de preguntar lo siguiente
+**REGLAS ESTRICTAS:**
+- NUNCA repitas una pregunta si ya tienes esa información arriba
+- Máximo 3-4 líneas por mensaje
 - 1-2 emojis máximo
+- Sé conversacional y amigable
 
-**EJEMPLO CORRECTO:**
-Usuario: "terreno"
-Tú: "Perfecto, buscas un terreno 🏡 ¿En qué zona o ciudad te interesa?"
-Usuario: "no mas de 2 millones"  
-Tú: "Entendido, terreno con presupuesto hasta 2M 💰 ¿En qué zona o ciudad lo buscas?"
-Usuario: "zapopan"
-Tú: "Excelente! Busco terrenos en Zapopan hasta 2M... [usa consultar_documentos]"
+**AL RESPONDER, INCLUYE AL FINAL UN BLOQUE JSON OCULTO:**
+[ESTADO]{"tipo":"valor o null","zona":"valor o null","presupuesto":"valor o null"}[/ESTADO]
+
+Extrae los valores de la conversación. Si el cliente menciona algo nuevo, actualízalo.
 
 Zona horaria: America/Mexico_City`;
+}
+
+function extraerEstadoDeRespuesta(respuesta, estadoActual) {
+  const regex = /\[ESTADO\](.*?)\[\/ESTADO\]/s;
+  const match = respuesta.match(regex);
+  
+  if (match) {
+    try {
+      const nuevosDatos = JSON.parse(match[1]);
+      return {
+        ...estadoActual,
+        tipo_propiedad: nuevosDatos.tipo || estadoActual.tipo_propiedad || '',
+        zona: nuevosDatos.zona || estadoActual.zona || '',
+        presupuesto: nuevosDatos.presupuesto || estadoActual.presupuesto || ''
+      };
+    } catch (e) {
+      console.error('Error parsing estado:', e);
+    }
+  }
+  
+  return estadoActual;
+}
+
+function limpiarRespuesta(respuesta) {
+  return respuesta.replace(/\[ESTADO\].*?\[\/ESTADO\]/s, '').trim();
+}
 
 const tools = [
   {
@@ -69,7 +201,7 @@ const tools = [
   },
   {
     name: 'agendar_cita',
-    description: 'Agenda visita cuando el cliente CONFIRME.',
+    description: 'Agenda visita cuando el cliente CONFIRME interés en una propiedad específica.',
     input_schema: {
       type: 'object',
       properties: {
@@ -106,7 +238,7 @@ async function consultarDocumentos({ query }) {
   }
 }
 
-async function obtenerHistorialConversacion(telefono, limite = 20) {
+async function obtenerHistorialConversacion(telefono, limite = 10) {
   try {
     const auth = getGoogleAuth(['https://www.googleapis.com/auth/spreadsheets.readonly']);
     const sheets = google.sheets({ version: 'v4', auth });
@@ -122,8 +254,6 @@ async function obtenerHistorialConversacion(telefono, limite = 20) {
     const mensajesCliente = rows
       .filter(row => row[1] === telefono && row[3])
       .slice(-limite);
-    
-    console.log('📜 Historial:', mensajesCliente.length, 'msgs para', telefono);
     
     return mensajesCliente.map(row => ({
       direccion: row[2],
@@ -197,34 +327,34 @@ export default async function handler(req, res) {
   try {
     const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
     
-    const historial = await obtenerHistorialConversacion(telefono, 20);
+    const estado = await obtenerEstadoConversacion(telefono);
+    console.log('📋 Estado actual:', JSON.stringify(estado));
+    
+    const historial = await obtenerHistorialConversacion(telefono, 10);
     
     let messages = [];
-    let contextoResumen = '';
     
     if (historial.length > 1) {
-      const previos = historial.slice(0, -1);
-      
+      const previos = historial.slice(-6, -1);
       previos.forEach(msg => {
         const role = msg.direccion === 'inbound' ? 'user' : 'assistant';
-        messages.push({ role, content: msg.mensaje });
+        const contenido = limpiarRespuesta(msg.mensaje);
+        if (contenido) {
+          messages.push({ role, content: contenido });
+        }
       });
-      
-      contextoResumen = previos.map(m => 
-        (m.direccion === 'inbound' ? 'Cliente: ' : 'Asesor: ') + m.mensaje
-      ).join('\n');
-      
-      console.log('📜 Contexto cargado:', messages.length, 'mensajes');
     }
     
     messages.push({ role: 'user', content: Body });
     
-    console.log('📤 Enviando a Claude:', messages.length, 'mensajes');
+    const systemPrompt = construirPromptConEstado(estado);
+    
+    console.log('📤 Enviando a Claude con estado estructurado');
     
     let response = await anthropic.messages.create({
       model: 'claude-sonnet-4-20250514',
-      max_tokens: 400,
-      system: SYSTEM_PROMPT + (contextoResumen ? '\n\n**RESUMEN DE CONVERSACIÓN PREVIA:**\n' + contextoResumen : ''),
+      max_tokens: 500,
+      system: systemPrompt,
       tools,
       messages
     });
@@ -243,25 +373,30 @@ export default async function handler(req, res) {
       
       response = await anthropic.messages.create({
         model: 'claude-sonnet-4-20250514',
-        max_tokens: 400,
-        system: SYSTEM_PROMPT,
+        max_tokens: 500,
+        system: systemPrompt,
         tools,
         messages
       });
     }
     
-    const finalResponse = response.content.find(b => b.type === 'text')?.text || 'Error generando respuesta';
+    const respuestaCompleta = response.content.find(b => b.type === 'text')?.text || 'Error generando respuesta';
+    
+    const nuevoEstado = extraerEstadoDeRespuesta(respuestaCompleta, estado);
+    await guardarEstadoConversacion(nuevoEstado);
+    
+    const respuestaLimpia = limpiarRespuesta(respuestaCompleta);
     
     const client = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
     const twilioMsg = await client.messages.create({
       from: 'whatsapp:' + process.env.TWILIO_WHATSAPP_NUMBER,
       to: From,
-      body: finalResponse
+      body: respuestaLimpia
     });
     
-    await guardarMensajeEnSheet({ telefono, direccion: 'outbound', mensaje: finalResponse, messageId: twilioMsg.sid });
+    await guardarMensajeEnSheet({ telefono, direccion: 'outbound', mensaje: respuestaLimpia, messageId: twilioMsg.sid });
     
-    console.log('✅ Respuesta enviada');
+    console.log('✅ Respuesta enviada, estado guardado');
     return res.status(200).json({ success: true });
   } catch (error) {
     console.error('❌ Error:', error);
